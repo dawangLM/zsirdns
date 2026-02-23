@@ -11,6 +11,16 @@ external-controller: 0.0.0.0:9090
 external-ui: ui
 secret: ""
 
+# TUN 模式配置
+tun:
+  enable: true
+  stack: system # 可选 system/gvisor/mixed
+  device: utun
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53 # 劫持所有 DNS 请求到 Clash 内置 DNS
+
 # 流量嗅探
 sniffer:
   enable: true
