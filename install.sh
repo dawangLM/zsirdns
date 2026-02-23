@@ -99,18 +99,30 @@ chmod +x clash
 mv clash "$BIN_DIR/zsir-clash"
 
 # 下载 MosDNS
-echo -e "${GREEN}正在清理旧版本 MosDNS 并获取最新内核...${PLAIN}"
+echo -e "${GREEN}正在从 GitHub API 获取 MosDNS 标准版内核 (linux-$ARCH)...${PLAIN}"
 rm -f "$BIN_DIR/zsir-mosdns"
 
-# 映射 MosDNS 架构名称
+# 映射 MosDNS 架构名称关键词
 case "$ARCH_RAW" in
-    x86_64) MOSDNS_ARCH="amd64" ;;
-    aarch64|arm64) MOSDNS_ARCH="arm64" ;;
-    armv7*) MOSDNS_ARCH="arm-7" ;;
+    x86_64) M_ARCH="amd64" ;;
+    aarch64|arm64) M_ARCH="arm64" ;;
+    armv7*) M_ARCH="arm7" ;;
 esac
 
-MOSDNS_URL="https://github.com/IrfanAbid/mosdns-v5-binary/releases/latest/download/mosdns-linux-${MOSDNS_ARCH}.zip"
+# 动态获取 MosDNS 最新 Release 资源
+# 优先匹配 linux-arch.zip 格式的标准包
+MOSDNS_URL=$(curl -s https://api.github.com/repos/IrfanAbid/mosdns-v5-binary/releases/latest | \
+    grep "browser_download_url" | \
+    grep "linux-$M_ARCH" | \
+    grep ".zip" | \
+    head -n 1 | cut -d '"' -f 4)
 
+if [ -z "$MOSDNS_URL" ]; then
+    echo -e "${RED}错误: 无法找到适用于 linux-$M_ARCH 的 MosDNS 下载链接${PLAIN}"
+    exit 1
+fi
+
+echo -e "${GREEN}找到 MosDNS 链接: $(basename $MOSDNS_URL)${PLAIN}"
 wget -O mosdns.zip "$MOSDNS_URL"
 apt install -y unzip
 unzip -o mosdns.zip
