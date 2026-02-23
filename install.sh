@@ -63,17 +63,31 @@ case "$ARCH" in
 esac
 
 # 下载 Clash (Mihomo)
-echo -e "${GREEN}正在获取 Clash (Mihomo) 最新版本号...${PLAIN}"
-CLASH_VERSION=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+echo -e "${GREEN}正在从 GitHub API 获取 Clash (Mihomo) 最佳匹配内核...${PLAIN}"
 
-if [ -z "$CLASH_VERSION" ]; then
-    echo -e "${RED}无法获取最新版本号，使用默认 v1.18.0${PLAIN}"
-    CLASH_VERSION="v1.18.0"
+# 获取最新 release 的 asset 列表并匹配架构
+CLASH_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
+    grep "browser_download_url" | grep "linux-${CLASH_ARCH}" | head -n 1 | cut -d '"' -f 4)
+
+if [ -z "$CLASH_URL" ]; then
+    # 如果最新的匹配不到，尝试模糊匹配 (兼容 alpha/beta 等带哈希的文件名)
+    echo -e "${BLUE}由于文件名包含后缀，尝试进行模糊匹配...${PLAIN}"
+    # 针对 arm64 常见的 alpha 命名进行修正搜索
+    if [[ "$CLASH_ARCH" == "arm64" ]]; then
+        CLASH_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
+            grep "browser_download_url" | grep "linux-arm64" | grep ".gz" | head -n 1 | cut -d '"' -f 4)
+    else
+        CLASH_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
+            grep "browser_download_url" | grep "linux-${CLASH_ARCH%%-*}" | head -n 1 | cut -d '"' -f 4)
+    fi
 fi
 
-echo -e "${GREEN}正在下载 Clash (Mihomo) $CLASH_VERSION ($CLASH_ARCH) 内核...${PLAIN}"
-CLASH_URL="https://github.com/MetaCubeX/mihomo/releases/download/${CLASH_VERSION}/mihomo-linux-${CLASH_ARCH}.gz"
+if [ -z "$CLASH_URL" ]; then
+    echo -e "${RED}错误: 无法在 GitHub Release 中找到适用于 $CLASH_ARCH 的下载链接${PLAIN}"
+    exit 1
+fi
 
+echo -e "${GREEN}找到内核链接: $(basename $CLASH_URL)${PLAIN}"
 wget -O clash.gz "$CLASH_URL"
 gunzip -f clash.gz
 chmod +x clash
