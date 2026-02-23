@@ -1,0 +1,58 @@
+log:
+  level: info
+  file: "/Users/zw/Downloads/TitanDNS-online/zsirdns/mosdns.log"
+
+api:
+  http: "127.0.0.1:9091"
+
+plugins:
+  # 转发到国内 DNS
+  upstream_china:
+    type: forward
+    upstreams:
+      - addr: "https://223.5.5.5/dns-query"
+      - addr: "https://119.29.29.29/dns-query"
+
+  # 转发到 Clash (Fake-IP)
+  upstream_clash:
+    type: forward
+    upstreams:
+      - addr: "udp://127.0.0.1:1053"
+
+  # 缓存
+  main_cache:
+    type: cache
+    size: 20480
+
+  # 国内域名屏蔽/分流 (简化版，实际可挂载 geosite)
+  query_is_china_domain:
+    type: query_matcher
+    domain:
+      - "ext:geosite.dat:cn"
+
+  # 国内 IP 分流
+  resp_is_china_ip:
+    type: response_matcher
+    ip:
+      - "ext:geoip.dat:cn"
+
+sequences:
+  - tag: main_sequence
+    exec:
+      - main_cache
+      - if: query_is_china_domain
+        exec:
+          - upstream_china
+          - return
+      - exec: upstream_clash
+      - if: resp_is_china_ip
+        exec:
+          - upstream_china
+
+servers:
+  - exec: main_sequence
+    listeners:
+      - protocol: udp
+        addr: "0.0.0.0:53"
+      - protocol: tcp
+        addr: "0.0.0.0:53"
