@@ -70,16 +70,26 @@ esac
 CLASH_MATCH_STR="${OS}-${ARCH}"
 
 # 下载 Clash (Mihomo)
-echo -e "${GREEN}正在清理旧版本 Clash 并获取最新内核...${PLAIN}"
+echo -e "${GREEN}正在从 GitHub API 获取 Clash (Mihomo) 标准版内核 ($OS-$ARCH)...${PLAIN}"
 rm -f "$BIN_DIR/zsir-clash"
 
-# 获取最新 release 的所有 asset 并进行匹配
+# 精准匹配逻辑：
+# 1. 必须包含 os-arch
+# 2. 排除 v1/v2/v3/v4 等指令集优化版 (除非用户特殊要求)
+# 3. 排除 go12x 等编译器特定版
+# 4. 排除 compatible 版
 CLASH_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
-    grep "browser_download_url" | grep "$CLASH_MATCH_STR" | grep ".gz" | head -n 1 | cut -d '"' -f 4)
+    grep "browser_download_url" | \
+    grep "$OS-$ARCH" | \
+    grep ".gz" | \
+    grep -vE "v[1-4]|go|compatible" | \
+    head -n 1 | cut -d '"' -f 4)
 
 if [ -z "$CLASH_URL" ]; then
-    echo -e "${RED}错误: 无法在 GitHub Release 中找到适用于 $CLASH_MATCH_STR 的下载链接${PLAIN}"
-    exit 1
+    # 如果过滤太严导致没搜到，则降级搜索最基础的匹配项
+    echo -e "${BLUE}严格匹配未找到，尝试降级搜索...${PLAIN}"
+    CLASH_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | \
+        grep "browser_download_url" | grep "$OS-$ARCH" | grep ".gz" | head -n 1 | cut -d '"' -f 4)
 fi
 
 echo -e "${GREEN}找到内核链接: $(basename $CLASH_URL)${PLAIN}"
